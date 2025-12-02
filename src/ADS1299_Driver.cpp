@@ -14,8 +14,9 @@ int  ADS1299_Driver::getRegister(u8_t reg, u8_t regNum,u8_t *regData) {
     if (__spi) {
         __spi->beginTransaction(*__spiSetting);
         digitalWrite(__cs, LOW);
+        __spi->transfer(ADS1299_SDATAC_CMD);
         __spi->transfer(0x20|reg);  
-        __spi->transfer(regNum);
+        __spi->transfer(regNum-0x01);
         for(u8_t i=0;i<regNum;i++)
             regData[i] = __spi->transfer(0x00);
         digitalWrite(__cs, HIGH);
@@ -33,8 +34,9 @@ int  ADS1299_Driver::setRegister(u8_t reg, u8_t regNum,u8_t *regData) {
     if (__spi) {
         __spi->beginTransaction(*__spiSetting);
         digitalWrite(__cs, LOW);
-        __spi->transfer(reg);  
-        __spi->transfer(regNum);
+        __spi->transfer(ADS1299_SDATAC_CMD);
+        __spi->transfer(0x40|reg);  
+        __spi->transfer(regNum-0x01);
         for(u8_t i=0;i<regNum;i++)
             __spi->transfer(regData[i]);
         digitalWrite(__cs, HIGH);
@@ -52,9 +54,9 @@ u8_t ADS1299_Driver::readDeviceType(void) {
     u8_t chipID;
     u8_t result;
     if(mode==ADS1299_MODE_IDLE)
-        u8_t result=getRegister(ADS1299_ID_REG, 1,&chipID);
+        u8_t result=getRegister(ADS1299_ID_REG,0x01,&chipID);
     if(result==DEV_WIRE_NONE)
-        return chipID;
+        return chipID&0x1F;
     return result;
 }
 
@@ -187,11 +189,17 @@ int ADS1299_Driver::setResetPin(u8_t pin){
  * @return: STATUS value
  */
 int ADS1299_Driver::startCoversion(void) {  
-    if(startPin==-1)
-        return writeCommand(ADS1299_START_CMD);
+    if(startPin==-1){
+        int result=writeCommand(ADS1299_START_CMD);
+        if(result==DEV_WIRE_NONE)
+            mode=ADS1299_MODE_CONTINUOUS;
+        else
+            return result;
+    }
     else{
         pinMode(startPin,OUTPUT);
         digitalWrite(startPin,HIGH);
+        mode=ADS1299_MODE_CONTINUOUS;
         return ADS1299_DRIVER_OK;
     }    
 }
@@ -201,11 +209,17 @@ int ADS1299_Driver::startCoversion(void) {
  *  @return: STATUS value
  */
 int ADS1299_Driver::stopCoversion(void) {
-    if(startPin==-1)
-        return writeCommand(ADS1299_STOP_CMD);
+    if(startPin==-1){
+        int result=writeCommand(ADS1299_SDATAC_CMD);
+        if(result==DEV_WIRE_NONE)
+            mode=ADS1299_MODE_IDLE;
+        else
+            return result;
+    }
     else{
         pinMode(startPin,OUTPUT);
         digitalWrite(startPin,LOW);
+        mode=ADS1299_MODE_IDLE;
         return ADS1299_DRIVER_OK;
     }
 }

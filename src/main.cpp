@@ -2,7 +2,7 @@
 //#include <freertos/FreeRTOS.h>
 #include <ADS1299_Driver.hpp>
 
-#define SPI_FREQUENCY 100000
+#define SPI_FREQUENCY 4000000
 #define SPI_CS_PIN 3
 #define SPI_MISO_PIN 0
 #define SPI_MOSI_PIN 2
@@ -41,6 +41,6 @@ void loop() {
   Serial.print("ADS1299 Device Type: ");
   Serial.print(type);
   Serial.print("\n");
-  delay(1000);
+  delay(200);
 }
 
