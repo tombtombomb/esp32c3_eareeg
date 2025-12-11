@@ -111,7 +111,7 @@
 #define ADS1299_DEVICE_4CH               (0x1C)
 
 #define ADS1299_DRIVER_OK                DEV_WIRE_NONE
-#define ADS1299_DRIVER_ERROR             DEV_WIRE_ERROR
+#define ADS1299_DRIVER_ERROR             DEV_WIRE_ERR
 #define ADS1299_DRIVER_TIMEOUT           DEV_WIRE_TIMEOUT
 #define ADS1299_DRIVER_MISSCHn           -3
 
@@ -140,12 +140,14 @@ class ADS1299_Driver:public ADCCommon{
         int setLOFF(u8_t cfg);
         int setCHnConfig(u8_t ch, u8_t cfg);
         int setCHnGain(u8_t ch, u8_t gain);
+        int setCHnEnable(u8_t ch, bool enable);
         int setCHnInput(u8_t ch, u8_t cfg);
         int setCHnSRB2(u8_t ch, u8_t cfg);
         int setStartPin(u8_t pin);
         int setResetPin(u8_t pin);
         int startCoversion(void);
         int stopCoversion(void);
+        int stopReadData(void); 
         int resetDevice(void);
 
 

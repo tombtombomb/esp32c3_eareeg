@@ -10,7 +10,7 @@ void ADS1299_Driver::init(void) {
  * @brief get the register
  * @return: STATUS value
  */
-int  ADS1299_Driver::getRegister(u8_t reg, u8_t regNum,u8_t *regData) {
+int ADS1299_Driver::getRegister(u8_t reg, u8_t regNum,u8_t *regData) {
     if (__spi) {
         __spi->beginTransaction(*__spiSetting);
         digitalWrite(__cs, LOW);
@@ -66,14 +66,31 @@ u8_t ADS1299_Driver::readDeviceType(void) {
  * @return: STATUS value
  */
 int ADS1299_Driver::setConfig1(u8_t cfg) {
-    return writeRegister(ADS1299_CONFIG1_REG,cfg); 
+    if(mode==ADS1299_MODE_IDLE)
+        return setRegister(ADS1299_CONFIG1_REG,0x01,&cfg); 
+    return ADS1299_DRIVER_ERROR;
 }
 
+/**
+ * @brief set Datarate
+ * @param rate: datarate
+ * @return: STATUS value
+ */
 int ADS1299_Driver::setDatarate(u8_t rate) {
-    u8_t cfg = readRegister(ADS1299_CONFIG1_REG);
-    cfg &= 0xF8;
-    cfg |= rate;
-    return writeRegister(ADS1299_CONFIG1_REG,cfg);
+    int result;
+    u8_t cfg;
+    if(mode==ADS1299_MODE_IDLE){
+        result=getRegister(ADS1299_CONFIG1_REG, 0x01,&cfg);
+        if(result==ADS1299_DRIVER_ERROR)
+            return ADS1299_DRIVER_ERROR;
+        cfg &= 0xF8;
+        cfg |= rate;
+        result=setRegister(ADS1299_CONFIG1_REG, 0x01,&cfg);
+        if(result==ADS1299_DRIVER_ERROR)
+            return ADS1299_DRIVER_ERROR;
+        return ADS1299_DRIVER_OK;
+    }
+    return ADS1299_DRIVER_ERROR;
 }
 
 /**
@@ -82,7 +99,9 @@ int ADS1299_Driver::setDatarate(u8_t rate) {
  * @return: STATUS value
  */
 int ADS1299_Driver::setConfig2(u8_t cfg) {
-    return writeRegister(ADS1299_CONFIG2_REG,cfg);
+    if(mode==ADS1299_MODE_IDLE)
+        return setRegister(ADS1299_CONFIG2_REG,0x01,&cfg); 
+    return ADS1299_DRIVER_ERROR;
 }
 
 /**
@@ -91,7 +110,9 @@ int ADS1299_Driver::setConfig2(u8_t cfg) {
  * @return: STATUS value
  */
 int ADS1299_Driver::setConfig3(u8_t cfg) {
-    return writeRegister(ADS1299_CONFIG3_REG,cfg);
+    if(mode==ADS1299_MODE_IDLE)
+        return setRegister(ADS1299_CONFIG3_REG,0x01,&cfg); 
+    return ADS1299_DRIVER_ERROR;
 }
 
 /**
@@ -100,7 +121,9 @@ int ADS1299_Driver::setConfig3(u8_t cfg) {
  * @return: STATUS value
  */
 int ADS1299_Driver::setLOFF(u8_t cfg) {
-    return writeRegister(ADS1299_LOFF_REG,cfg);
+    if(mode==ADS1299_MODE_IDLE)
+        return setRegister(ADS1299_LOFF_REG,0x01,&cfg); 
+    return ADS1299_DRIVER_ERROR;
 }
 
 /**
@@ -113,55 +136,121 @@ int ADS1299_Driver::setCHnConfig(u8_t ch, u8_t cfg) {
     if((ch > 8)||(ch < 1))
         return ADS1299_DRIVER_MISSCHn;
     u8_t reg = ADS1299_CH1SET_REG + ch-1;
-    return writeRegister(reg,cfg);
+    if(mode==ADS1299_MODE_IDLE)
+        return setRegister(reg,0x01,&cfg);
+    return ADS1299_DRIVER_ERROR;
 }
 
 /**
  * @brief Set CHn gain
  * @param ch: channel number (1-8)
- * @param gain: gain (1-8)
+ * @param gain: gain (1-8);
+ *              ADS1299_CH_N_SET_SETUP_GAIN_24: 24x; 
+ *              ADS1299_CH_N_SET_SETUP_GAIN_12: 12x; 
+ *              ADS1299_CH_N_SET_SETUP_GAIN_6: 6x; 
+ *              ADS1299_CH_N_SET_SETUP_GAIN_4: 4x;
+ *              ADS1299_CH_N_SET_SETUP_GAIN_2: 2x;
+ *              ADS1299_CH_N_SET_SETUP_GAIN_1: 1x
  * @return: 0 if success, error code otherwise
  */
 int ADS1299_Driver::setCHnGain(u8_t ch, u8_t gain) {
+    int result;
+    u8_t cfg;
     if((ch > 8)||(ch < 1))
         return ADS1299_DRIVER_MISSCHn;
     u8_t reg = ADS1299_CH1SET_REG + ch-1;
-    u8_t cfg = readRegister(reg);
-    cfg &= 0x8F;
-    cfg |= gain;
-    return writeRegister(reg,cfg);
+    if(mode==ADS1299_MODE_IDLE){
+        result=getRegister(reg, 0x01,&cfg);
+        if(result==ADS1299_DRIVER_ERROR)
+            return ADS1299_DRIVER_ERROR;
+        cfg &= 0x08;
+        cfg |= gain;
+        result=setRegister(reg, 0x01,&cfg);
+        if(result==ADS1299_DRIVER_ERROR)
+            return ADS1299_DRIVER_ERROR;
+        return ADS1299_DRIVER_OK;
+    }
+    return ADS1299_DRIVER_ERROR;
+}
+
+/**
+ * @brief Set CHn enable/disable
+ * @param ch: channel number (1-8)
+ * @param enable: true if enable, false if disable
+ * @return: 0 if success, error code otherwise
+ */
+int ADS1299_Driver::setCHnEnable(u8_t ch, bool enable) {
+    u8_t cfg;
+    if((ch > 8)||(ch < 1))
+        return ADS1299_DRIVER_MISSCHn;
+    u8_t reg = ADS1299_CH1SET_REG + ch-1;
+    if(mode==ADS1299_MODE_IDLE){
+        if(enable==false){
+            cfg=0x81;
+            return setRegister(reg, 0x01,&cfg);
+        }
+        else
+        {
+            cfg=0x60;
+            return setRegister(reg, 0x01,&cfg);
+        }
+    }
+    return ADS1299_DRIVER_ERROR;
 }
 
 /**
  * @brief Set CHn input configuration
  * @param ch: channel number (1-8)
- * @param cfg: configuration (0-7)
+ * @param inputCfg: configuration (0-7);
+ *                  ADS1299_CH_N_SET_SETUP_MUX_NEI: Normal to electrode;
+ *                  ADS1299_CH_N_SET_SETUP_MUX_IS: Input short;
+ *                  ADS1299_CH_N_SET_SETUP_MUX_MEAS: Used in conjunction with BIAS_MEAS bit  
  * @return: 0 if success, error code otherwise
  */
-int ADS1299_Driver::setCHnInput(u8_t ch, u8_t cfg) {
+int ADS1299_Driver::setCHnInput(u8_t ch, u8_t inputCfg) {
+    int result;
+    u8_t cfg;
     if((ch > 8)||(ch < 1))
         return ADS1299_DRIVER_MISSCHn;
     u8_t reg = ADS1299_CH1SET_REG + ch-1;
-    u8_t val = readRegister(reg);
-    val &= 0xF8;
-    val |= cfg;
-    return writeRegister(reg,val);
+    if(mode==ADS1299_MODE_IDLE){
+        result=getRegister(reg, 0x01,&cfg);
+        if(result==ADS1299_DRIVER_ERROR)
+            return ADS1299_DRIVER_ERROR;
+        cfg &= 0xF8;
+        cfg |= inputCfg;
+        result=setRegister(reg, 0x01,&cfg);
+        if(result==ADS1299_DRIVER_ERROR)
+            return ADS1299_DRIVER_ERROR;
+        return ADS1299_DRIVER_OK;
+    }
+    return ADS1299_DRIVER_ERROR;
 }
 
 /**
  * @brief Set CHn SRB2 configuration
  * @param ch: channel number (1-8)
- * @param cfg: configuration (0-7)
+ * @param val: configuration (0-7); ADS1299_CH_N_SET_SETUP_SRB2_OP: OPEN; ADS1299_CH_N_SET_SETUP_SRB2_CL: CLOSED     
  * @return: 0 if success, error code otherwise
 */
-int ADS1299_Driver::setCHnSRB2(u8_t ch, u8_t cfg) {
+int ADS1299_Driver::setCHnSRB2(u8_t ch, u8_t val) {
+    int result;
+    u8_t cfg;
     if((ch > 8)||(ch < 1))
         return ADS1299_DRIVER_MISSCHn;
     u8_t reg = ADS1299_CH1SET_REG + ch-1;
-    u8_t val = readRegister(reg);
-    val &= 0xF7;
-    val |= cfg;
-    return writeRegister(reg,val);
+    if(mode==ADS1299_MODE_IDLE){
+        result=getRegister(reg, 0x01,&cfg);
+        if(result==ADS1299_DRIVER_ERROR)
+            return ADS1299_DRIVER_ERROR;
+        cfg &= 0xF7;
+        cfg |= val;
+        result=setRegister(reg, 0x01,&cfg);
+        if(result==ADS1299_DRIVER_ERROR)
+            return ADS1299_DRIVER_ERROR;
+        return ADS1299_DRIVER_OK;
+    }
+    return ADS1299_DRIVER_ERROR;
 }
 
 /**
@@ -210,11 +299,7 @@ int ADS1299_Driver::startCoversion(void) {
  */
 int ADS1299_Driver::stopCoversion(void) {
     if(startPin==-1){
-        int result=writeCommand(ADS1299_SDATAC_CMD);
-        if(result==DEV_WIRE_NONE)
-            mode=ADS1299_MODE_IDLE;
-        else
-            return result;
+        return writeCommand(ADS1299_STOP_CMD);
     }
     else{
         pinMode(startPin,OUTPUT);
@@ -222,6 +307,14 @@ int ADS1299_Driver::stopCoversion(void) {
         mode=ADS1299_MODE_IDLE;
         return ADS1299_DRIVER_OK;
     }
+}
+
+int ADS1299_Driver::stopReadData(void) {
+    int result=writeCommand(ADS1299_SDATAC_CMD);
+    if(result==ADS1299_DRIVER_ERROR)
+        return ADS1299_DRIVER_ERROR;
+    mode=ADS1299_MODE_IDLE;
+    return ADS1299_DRIVER_OK;
 }
 
 int ADS1299_Driver::resetDevice(void) {
